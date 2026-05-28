@@ -1,5 +1,5 @@
 """
-Architecture parser — hybrid approach: regex first pass + LLM semantic pass.
+Parser d'architecture — premier passage regex (ports, versions), second passage LLM pour la sémantique.
 """
 from __future__ import annotations
 

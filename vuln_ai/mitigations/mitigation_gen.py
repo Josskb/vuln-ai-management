@@ -1,6 +1,6 @@
 """
-Mitigation generator — produces actionable, verifiable remediation steps
-for each identified vulnerability.
+Générateur de mitigations — produit des recommandations de correction avec
+les commandes de vérification pour chaque vulnérabilité.
 """
 from __future__ import annotations
 

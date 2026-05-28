@@ -1,8 +1,6 @@
 """
-LLM analyser — sends the parsed architecture to the LLM and returns a
-structured vulnerability report (JSON).
-
-Supports: Anthropic Claude, OpenAI-compatible, Ollama.
+Analyseur LLM — envoie l'architecture parsée au LLM, retourne un rapport de vulnérabilités en JSON.
+Compatible Claude (Anthropic), Ollama et toute API OpenAI-compatible.
 """
 from __future__ import annotations
 

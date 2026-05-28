@@ -1,6 +1,6 @@
 """
-CVE mapper — queries the NVD API v2 and enriches each vulnerability with
-official CVE metadata (CVSS, CWE, description).
+Mapping CVE — interroge l'API NVD v2 et ajoute les métadonnées officielles (CVSS, CWE)
+à chaque vulnérabilité identifiée par le LLM.
 """
 from __future__ import annotations
 

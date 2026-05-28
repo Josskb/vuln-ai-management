@@ -1,5 +1,5 @@
 """
-Report builder — assembles the final JSON and HTML reports.
+Constructeur de rapport — prend toutes les données du pipeline et génère le JSON brut et le HTML lisible.
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """
-Attack scenario generator — uses the LLM to produce MITRE ATT&CK-aligned
-kill chains for the identified vulnerabilities.
+Générateur de scénarios d'attaque — produit des kill chains alignées sur le framework MITRE ATT&CK
+à partir de la liste de vulnérabilités enrichies.
 """
 from __future__ import annotations
 
