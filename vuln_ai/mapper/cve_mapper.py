@@ -12,8 +12,6 @@ import requests
 
 NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
-# Known CVE table for components present in MediConnect — avoids unnecessary
-# API hits for well-known associations already documented in the report.
 _KNOWN_CVES: Dict[str, List[str]] = {
     "Mirth Connect 4.4.0": ["CVE-2023-43208"],
     "PHP Laravel 8.x": ["CVE-2021-21236", "CVE-2022-31279"],
@@ -35,10 +33,6 @@ class CVEMapper:
         if self.api_key:
             self.session.headers["apiKey"] = self.api_key
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def enrich_report(self, vulnerabilities: List[Dict]) -> List[Dict]:
         enriched = []
         for vuln in vulnerabilities:
@@ -51,7 +45,6 @@ class CVEMapper:
                 cve_details = self._get_cve_details(cve_id)
                 time.sleep(self.delay)
 
-            # If no direct CVE match but component is known, try keyword search
             if not cve_details:
                 cves = self._find_known_cves(component)
                 if cves:
@@ -62,11 +55,9 @@ class CVEMapper:
 
             if cve_details:
                 vuln["nvd_data"] = cve_details
-                # Override CVSS if NVD provides one
                 nvd_cvss = cve_details.get("cvss_score")
                 if nvd_cvss:
                     vuln["cvss_score"] = nvd_cvss
-                # Increase confidence since NVD confirmed the CVE
                 vuln["confidence_score"] = min(1.0, vuln.get("confidence_score", 0.7) + 0.15)
                 vuln["nvd_confirmed"] = True
             else:
@@ -78,7 +69,6 @@ class CVEMapper:
         return enriched
 
     def map_component_table(self) -> List[Dict]:
-        """Return the reference CVE table for known MediConnect components."""
         rows = []
         for component, cve_list in _KNOWN_CVES.items():
             for cve_id in cve_list:
@@ -93,10 +83,6 @@ class CVEMapper:
                     "description": (details.get("description") or "")[:200] if details else "",
                 })
         return rows
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _get_cve_details(self, cve_id: str) -> Optional[Dict]:
         try:

@@ -26,9 +26,6 @@ class Architecture(BaseModel):
     raw_description: str
 
 
-# ---------------------------------------------------------------------------
-# Regex helpers
-# ---------------------------------------------------------------------------
 _VERSION_RE = re.compile(r"(\d+\.\d+(?:\.\d+)?(?:\.\d+)?)")
 _PORT_RE = re.compile(r"port[s]?\s+(\d{2,5})", re.IGNORECASE)
 
@@ -66,10 +63,6 @@ def _extract_ports(text: str) -> List[int]:
     return [int(p) for p in _PORT_RE.findall(text)]
 
 
-# ---------------------------------------------------------------------------
-# Pre-defined components for MediConnect Corp
-# (first-pass extraction; LLM enriches in second pass via llm_analyzer)
-# ---------------------------------------------------------------------------
 _MEDICONNECT_COMPONENTS: List[dict] = [
     {
         "name": "Nginx 1.18",
@@ -208,11 +201,6 @@ _MEDICONNECT_COMPONENTS: List[dict] = [
 
 
 class ArchitectureParser:
-    """
-    Hybrid parser: pre-defined components for known architectures + dynamic
-    regex extraction for unknown descriptions.
-    """
-
     def parse(self, description: str) -> Architecture:
         name = self._extract_name(description)
         components = self._extract_components(description)
@@ -232,11 +220,9 @@ class ArchitectureParser:
     def _extract_components(self, description: str) -> List[Component]:
         desc_lower = description.lower()
 
-        # Use pre-defined component list when MediConnect is detected
         if "mediconnect" in desc_lower or "mirth connect" in desc_lower:
             return [Component(**c) for c in _MEDICONNECT_COMPONENTS]
 
-        # Fallback: dynamic line-by-line extraction
         components = []
         for line in description.splitlines():
             line = line.strip(" -•*")

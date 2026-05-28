@@ -11,9 +11,6 @@ from typing import Any, Dict, List
 from vuln_ai.parser.arch_parser import Architecture
 
 
-# ---------------------------------------------------------------------------
-# System prompt  (Q4 improvements: few-shot, chain-of-thought, CWE, confidence)
-# ---------------------------------------------------------------------------
 SYSTEM_PROMPT = """\
 You are a senior cybersecurity expert specialising in architecture risk \
 assessment and penetration testing. Your analysis must follow the rigour of \
@@ -106,10 +103,6 @@ def _build_user_message(arch: Architecture) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# LLM client wrappers
-# ---------------------------------------------------------------------------
-
 def _call_anthropic(user_msg: str, cfg: Dict[str, Any]) -> str:
     import anthropic  # type: ignore
 
@@ -145,10 +138,6 @@ def _call_openai_compatible(user_msg: str, cfg: Dict[str, Any], base_url: str = 
     return response.choices[0].message.content
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 class LLMAnalyzer:
     def __init__(self, config: Dict[str, Any]):
         self.cfg = config.get("llm", {})
@@ -167,7 +156,7 @@ class LLMAnalyzer:
                 user_msg, ollama_cfg,
                 base_url=self.ollama_cfg.get("base_url", "http://localhost:11434") + "/v1",
             )
-        else:  # openai-compatible
+        else:
             raw = _call_openai_compatible(user_msg, self.cfg)
 
         report = self._parse_response(raw)
@@ -175,7 +164,6 @@ class LLMAnalyzer:
         return report
 
     def _parse_response(self, raw: str) -> Dict[str, Any]:
-        # Strip markdown fences if present
         text = raw.strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1]

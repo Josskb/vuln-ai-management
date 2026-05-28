@@ -1,18 +1,15 @@
 """
-vuln_ai — Point d'entrée du pipeline.
+vuln_ai -- point d'entree du pipeline.
 
-Options :
-    --arch PATH          chemin vers la description d'architecture (défaut : MediConnect)
-    --config PATH        chemin vers config.yaml
-    --skip-cve           passe l'enrichissement NVD
-    --skip-scenarios     passe la génération de scénarios
-    --demo               données pré-remplies, aucun appel LLM ni API
+    --arch PATH       chemin vers la description d'architecture (defaut : MediConnect)
+    --config PATH     chemin vers config.yaml
+    --skip-cve        passe l'enrichissement NVD
+    --skip-scenarios  passe la generation de scenarios
+    --demo            donnees pre-remplies, aucun appel LLM ni API
 """
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from pathlib import Path
 
 import yaml
@@ -41,12 +38,8 @@ def load_config(path: Path) -> dict:
 
 
 def _run_with_progress(label: str, fn):
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-        transient=True,
-    ) as p:
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                  console=console, transient=True) as p:
         t = p.add_task(label, total=None)
         result = fn()
         p.remove_task(t)
@@ -54,13 +47,13 @@ def _run_with_progress(label: str, fn):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="VulnAI -- pipeline d'analyse de securite par LLM")
-    parser.add_argument("--arch", default=str(_DEFAULT_ARCH), help="chemin vers la description d'architecture")
-    parser.add_argument("--config", default=str(_DEFAULT_CONFIG), help="chemin vers config.yaml")
-    parser.add_argument("--skip-cve", action="store_true", help="passer l'enrichissement NVD")
-    parser.add_argument("--skip-scenarios", action="store_true", help="passer la generation de scenarios")
-    parser.add_argument("--demo", action="store_true", help="donnees pre-remplies, aucun appel LLM ni API")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser(description="VulnAI -- pipeline d'analyse de securite par LLM")
+    ap.add_argument("--arch", default=str(_DEFAULT_ARCH), help="chemin vers la description d'architecture")
+    ap.add_argument("--config", default=str(_DEFAULT_CONFIG), help="chemin vers config.yaml")
+    ap.add_argument("--skip-cve", action="store_true", help="passer l'enrichissement NVD")
+    ap.add_argument("--skip-scenarios", action="store_true", help="passer la generation de scenarios")
+    ap.add_argument("--demo", action="store_true", help="donnees pre-remplies, aucun appel LLM ni API")
+    args = ap.parse_args()
 
     config = load_config(Path(args.config))
     arch_text = Path(args.arch).read_text(encoding="utf-8")
@@ -72,12 +65,10 @@ def main() -> None:
         expand=False,
     ))
 
-    # Etape 1 : parser l'architecture
     arch = _run_with_progress("Lecture de l'architecture...", lambda: ArchitectureParser().parse(arch_text))
     console.print(f"[green]OK[/green] Architecture : [bold]{arch.name}[/bold] "
                   f"-- {len(arch.components)} composants -- reseau : {arch.network_topology}")
 
-    # Etape 2 : analyse des vulnerabilites par le LLM
     if args.demo:
         from vuln_ai.demo_data import DEMO_LLM_REPORT
         llm_report = DEMO_LLM_REPORT
@@ -97,24 +88,18 @@ def main() -> None:
                   f"(score de risque [bold red]{risk_score}[/bold red]/100, {filtered} filtrees faible confiance)")
     _print_vuln_table(vulns)
 
-    # Etape 3 : enrichissement CVE via l'API NVD
     cve_table: list = []
-    if args.skip_cve or args.demo:
-        if args.demo:
-            console.print("[yellow]DEMO[/yellow] Enrichissement NVD passe en mode demo")
-    else:
+    if args.demo:
+        console.print("[yellow]DEMO[/yellow] Enrichissement NVD passe en mode demo")
+    elif not args.skip_cve:
         def _do_cve():
             mapper = CVEMapper(config)
-            enriched = mapper.enrich_report(vulns)
-            table = mapper.map_component_table()
-            return enriched, table
+            return mapper.enrich_report(vulns), mapper.map_component_table()
 
-        vulns_enriched, cve_table = _run_with_progress("Enrichissement CVE via l'API NVD...", _do_cve)
-        vulns = vulns_enriched
+        vulns, cve_table = _run_with_progress("Enrichissement CVE via l'API NVD...", _do_cve)
         confirmed = sum(1 for v in vulns if v.get("nvd_confirmed"))
-        console.print(f"[green]OK[/green] Enrichissement CVE termine -- {confirmed}/{len(vulns)} confirmes par NVD")
+        console.print(f"[green]OK[/green] {confirmed}/{len(vulns)} CVE confirmes par NVD")
 
-    # Etape 4 : generation des scenarios d'attaque
     scenarios: dict = {"scenarios": []}
     if args.demo:
         from vuln_ai.demo_data import DEMO_SCENARIOS
@@ -127,7 +112,6 @@ def main() -> None:
         )
         console.print(f"[green]OK[/green] {len(scenarios.get('scenarios', []))} scenarios generes")
 
-    # Etape 5 : mitigations
     if args.demo:
         from vuln_ai.demo_data import DEMO_MITIGATIONS
         mitigations = DEMO_MITIGATIONS
@@ -139,7 +123,6 @@ def main() -> None:
         )
         console.print(f"[green]OK[/green] {len(mitigations.get('mitigations', []))} mitigations generees")
 
-    # Etape 6 : export des rapports
     report_paths = ReportBuilder(config).build(
         arch_name=arch.name,
         vulnerabilities=vulns,
