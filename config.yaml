@@ -1,0 +1,23 @@
+llm:
+  provider: anthropic          # anthropic | ollama | openai
+  model: claude-sonnet-4-6
+  temperature: 0.1
+  max_tokens: 8192
+
+ollama:
+  base_url: http://localhost:11434
+  model: llama3:70b
+
+nvd:
+  api_key: ""                  # Optional — raises rate limit from 5 to 50 req/s
+  base_url: https://services.nvd.nist.gov/rest/json/cves/2.0
+  min_cvss_score: 7.0
+  max_results_per_query: 5
+  request_delay: 0.7           # seconds between requests (conservative)
+
+output:
+  formats:
+    - json
+    - html
+  directory: output/
+  confidence_threshold: 0.6    # Minimum confidence to include a vulnerability

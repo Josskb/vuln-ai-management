@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Vulnerability Report — {{ architecture }}</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e;
+    --critical: #ff4d4d; --high: #ff8c00; --medium: #ffd700; --low: #3fb950;
+    --accent: #58a6ff; --code-bg: #1f2428;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* Header */
+  header { border-bottom: 2px solid var(--accent); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  header h1 { font-size: 1.8rem; color: var(--accent); }
+  header .meta { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; }
+
+  /* Risk score */
+  .risk-banner { display: flex; align-items: center; gap: 2rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem 1.5rem; margin-bottom: 2rem; }
+  .risk-score { font-size: 3rem; font-weight: 700; }
+  .risk-score.critical { color: var(--critical); }
+  .risk-score.high { color: var(--high); }
+  .risk-score.medium { color: var(--medium); }
+  .summary { flex: 1; color: var(--muted); }
+
+  /* Section titles */
+  h2 { font-size: 1.2rem; color: var(--accent); margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; color: var(--text); margin-bottom: 0.5rem; }
+
+  /* Severity badge */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; }
+  .badge.critical { background: #3d0000; color: var(--critical); border: 1px solid var(--critical); }
+  .badge.high { background: #3d1f00; color: var(--high); border: 1px solid var(--high); }
+  .badge.medium { background: #3d3200; color: var(--medium); border: 1px solid var(--medium); }
+  .badge.low { background: #0d2d17; color: var(--low); border: 1px solid var(--low); }
+
+  /* Vulnerability cards */
+  .vuln-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  .vuln-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.6rem; }
+  .vuln-id { color: var(--muted); font-size: 0.8rem; font-family: monospace; }
+  .vuln-component { font-weight: 600; }
+  .vuln-meta { display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem; flex-wrap: wrap; }
+  .vuln-meta span { display: flex; align-items: center; gap: 0.3rem; }
+  .cve-link { color: var(--accent); text-decoration: none; }
+  .cve-link:hover { text-decoration: underline; }
+  .attack-vector { background: var(--code-bg); border-left: 3px solid var(--accent);
+    font-family: monospace; font-size: 0.8rem; padding: 0.6rem 0.8rem; margin-top: 0.6rem; border-radius: 0 4px 4px 0; color: #a5d6ff; }
+  .confidence { font-size: 0.75rem; color: var(--muted); }
+
+  /* CVE table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: var(--surface); border: 1px solid var(--border); padding: 0.5rem 0.8rem;
+    text-align: left; color: var(--muted); font-weight: 600; }
+  td { border: 1px solid var(--border); padding: 0.5rem 0.8rem; vertical-align: top; }
+  tr:nth-child(even) td { background: #0e1419; }
+
+  /* Scenario cards */
+  .scenario-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+  .scenario-header { background: #1c2128; padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 1rem; }
+  .scenario-id { font-family: monospace; color: var(--accent); font-weight: 700; }
+  .scenario-body { padding: 1rem 1.2rem; }
+  .kill-chain { list-style: none; padding: 0; }
+  .kill-chain li { display: flex; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  .kill-chain li:last-child { border-bottom: none; }
+  .step-num { font-family: monospace; color: var(--accent); font-weight: 700; min-width: 1.8rem; }
+  .step-phase { color: var(--muted); font-size: 0.75rem; min-width: 8rem; }
+  .step-tech { font-size: 0.75rem; color: #79c0ff; min-width: 6rem; font-family: monospace; }
+  .step-cmd { font-family: monospace; font-size: 0.75rem; color: #a5d6ff; background: var(--code-bg); padding: 0.2rem 0.4rem; border-radius: 3px; }
+
+  /* Mitigation cards */
+  .mitigation-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  .priority-IMMEDIATE { border-left: 4px solid var(--critical); }
+  .priority-SHORT_TERM { border-left: 4px solid var(--high); }
+  .priority-LONG_TERM { border-left: 4px solid var(--medium); }
+  .mitigation-steps { font-size: 0.82rem; margin: 0.6rem 0; }
+  .mitigation-steps li { margin: 0.3rem 0; }
+  .verification { font-family: monospace; font-size: 0.78rem; background: var(--code-bg);
+    color: var(--low); padding: 0.5rem 0.8rem; border-radius: 4px; margin-top: 0.5rem; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Security Analysis Report — {{ architecture }}</h1>
+    <div class="meta">Generated {{ generated_at }} &nbsp;|&nbsp; {{ vulnerability_count }} vulnerabilities identified</div>
+  </header>
+
+  <!-- Risk score -->
+  <div class="risk-banner">
+    <div class="risk-score {% if risk_score >= 80 %}critical{% elif risk_score >= 60 %}high{% else %}medium{% endif %}">
+      {{ risk_score }}/100
+    </div>
+    <div class="summary">
+      <strong>Global Risk Score</strong><br>
+      {{ summary }}
+    </div>
+  </div>
+
+  <!-- ── VULNERABILITIES ── -->
+  <h2>Identified Vulnerabilities</h2>
+  {% for v in vulnerabilities %}
+  <div class="vuln-card">
+    <div class="vuln-header">
+      <span class="vuln-id">{{ v.id }}</span>
+      <span class="badge {{ v.severity | lower }}">{{ v.severity }}</span>
+      <span class="vuln-component">{{ v.component }}</span>
+      <span class="vuln-id" style="margin-left:auto">{{ v.type }}</span>
+    </div>
+    <div>{{ v.description }}</div>
+    <div class="vuln-meta">
+      {% if v.cve_id %}
+      <span>CVE: <a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ v.cve_id }}" target="_blank">{{ v.cve_id }}</a></span>
+      {% endif %}
+      {% if v.cwe_id %}<span>{{ v.cwe_id }}</span>{% endif %}
+      {% if v.cvss_score %}<span>CVSS {{ v.cvss_score }}</span>{% endif %}
+      <span class="confidence">Confidence {{ (v.confidence_score * 100) | int }}%</span>
+    </div>
+    {% if v.attack_vector %}
+    <div class="attack-vector">{{ v.attack_vector }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- ── CVE MAPPING TABLE ── -->
+  <h2>CVE Mapping Table</h2>
+  <table>
+    <thead>
+      <tr><th>Component</th><th>CVE</th><th>CVSS</th><th>CWE</th><th>Vector</th></tr>
+    </thead>
+    <tbody>
+    {% for row in cve_mapping_table %}
+      <tr>
+        <td>{{ row.component }}</td>
+        <td><a class="cve-link" href="https://nvd.nist.gov/vuln/detail/{{ row.cve_id }}" target="_blank">{{ row.cve_id }}</a></td>
+        <td>{{ row.cvss_score or 'N/A' }}</td>
+        <td>{{ row.cwe or 'N/A' }}</td>
+        <td style="font-family:monospace;font-size:0.75rem">{{ row.cvss_vector or 'N/A' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- ── ATTACK SCENARIOS ── -->
+  <h2>Attack Scenarios (MITRE ATT&amp;CK)</h2>
+  {% for s in attack_scenarios %}
+  <div class="scenario-card">
+    <div class="scenario-header">
+      <span class="scenario-id">{{ s.id }}</span>
+      <span>{{ s.title }}</span>
+      <span style="margin-left:auto;color:var(--muted);font-size:0.8rem">
+        {{ s.threat_actor }} &nbsp;|&nbsp; Detection: {{ s.detection_difficulty }}
+      </span>
+    </div>
+    <div class="scenario-body">
+      <div style="color:var(--muted);margin-bottom:0.6rem">
+        <strong>Objective:</strong> {{ s.objective }}<br>
+        <strong>Entry point:</strong> {{ s.entry_point_component }}
+        {% if s.entry_point_cve %} — {{ s.entry_point_cve }}{% endif %}<br>
+        <strong>Impact:</strong> {{ s.impact }}
+      </div>
+      {% if s.dread_score %}
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.6rem">
+        DREAD score: D={{ s.dread_score.damage }} R={{ s.dread_score.reproducibility }}
+        E={{ s.dread_score.exploitability }} A={{ s.dread_score.affected_users }}
+        Di={{ s.dread_score.discoverability }}
+        &nbsp;<strong style="color:var(--high)">→ {{ s.dread_score.total }}/10</strong>
+      </div>
+      {% endif %}
+      <ul class="kill-chain">
+      {% for step in s.kill_chain %}
+        <li>
+          <span class="step-num">{{ step.step }}</span>
+          <span class="step-phase">{{ step.phase }}</span>
+          <span class="step-tech">{{ step.technique_id }}</span>
+          <div>
+            <div>{{ step.description }}</div>
+            {% for cmd in step.commands %}
+            <div class="step-cmd">$ {{ cmd }}</div>
+            {% endfor %}
+          </div>
+        </li>
+      {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- ── MITIGATIONS ── -->
+  <h2>Prioritised Mitigations</h2>
+  {% for m in mitigations %}
+  <div class="mitigation-card priority-{{ m.priority }}">
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem">
+      <span class="badge {% if m.priority == 'IMMEDIATE' %}critical{% elif m.priority == 'SHORT_TERM' %}high{% else %}medium{% endif %}">
+        {{ m.priority }}
+      </span>
+      <strong>{{ m.title }}</strong>
+      <span style="margin-left:auto;color:var(--muted);font-size:0.8rem">Effort: {{ m.effort }}</span>
+    </div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.5rem">{{ m.description }}</div>
+    <ol class="mitigation-steps">
+    {% for step in m.implementation_steps %}
+      <li>{{ step }}</li>
+    {% endfor %}
+    </ol>
+    {% if m.verification %}
+    <div class="verification">✓ {{ m.verification }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <footer>
+    VulnAI Management System — Educational / Lab use only &nbsp;|&nbsp;
+    All techniques restricted to isolated, authorised environments.
+  </footer>
+</div>
+</body>
+</html>

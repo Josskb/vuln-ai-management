@@ -1,0 +1,52 @@
+version: "3.8"
+
+# Lab environment — Scenario C: Redis unauthenticated -> root persistence -> MySQL pivot
+# WARNING: intentionally insecure for educational purposes only.
+
+services:
+  redis:
+    image: redis:6.0
+    container_name: mediconnect_redis
+    # No password set intentionally
+    command: redis-server --protected-mode no
+    ports:
+      - "6379:6379"
+    networks:
+      - mediconnect_net
+
+  mysql:
+    image: mysql:5.7
+    container_name: mediconnect_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mediconnect
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: "App2023!"
+    ports:
+      - "3306:3306"
+    networks:
+      - mediconnect_net
+    volumes:
+      - ./mysql-init:/docker-entrypoint-initdb.d
+
+  webapp:
+    build: ./webapp
+    container_name: mediconnect_webapp
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: mysql
+      DB_USER: app_user
+      DB_PASSWORD: "App2023!"
+      DB_NAME: mediconnect
+    ports:
+      - "8080:80"
+    depends_on:
+      - redis
+      - mysql
+    networks:
+      - mediconnect_net
+
+networks:
+  mediconnect_net:
+    driver: bridge

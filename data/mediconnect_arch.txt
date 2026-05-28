@@ -1,0 +1,25 @@
+MediConnect Corp est une société de santé numérique qui opère une plateforme SaaS de gestion de dossiers médicaux.
+
+Couche exposition :
+  - Serveur web Nginx 1.18 exposé sur Internet (ports 80/443), TLS 1.2 uniquement
+  - Application web PHP 7.4 (Laravel 8.x) hébergée sur Ubuntu 20.04
+  - API REST publique sur /api/v1 — authentification par token JWT (HS256)
+  - Interface d'administration sur /admin — authentification basique HTTP
+
+Couche applicative :
+  - Serveur d'intégration Mirth Connect 4.4.0 (port 8080 interne, exposé via proxy)
+  - Service de notification interne en Python 3.8 utilisant pickle pour la sérialisation
+  - Moteur de règles métier en Java 11 (Spring Boot 2.5)
+  - Service de génération de PDF basé sur wkhtmltopdf 0.12.5
+
+Couche données :
+  - Base de données MySQL 5.7 accessible depuis l'application (user: app_user, pwd: App2023!)
+  - Serveur Redis 6.0 sans authentification, accessible en interne sur le port 6379
+  - Stockage fichiers AWS S3 — bucket public en lecture, credentials stockés dans .env
+
+Couche infrastructure :
+  - Serveur SSH exposé sur le port 22 — authentification par mot de passe autorisée
+  - Pas de segmentation réseau entre les couches (flat network)
+  - Logs applicatifs non centralisés, pas de SIEM
+  - Pas de WAF ni d'IDS/IPS déployé
+  - Mises à jour système non automatisées — dernier patch : 8 mois
