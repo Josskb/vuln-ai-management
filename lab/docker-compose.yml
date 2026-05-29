@@ -23,7 +23,7 @@ services:
       MYSQL_USER: app_user
       MYSQL_PASSWORD: "App2023!"
     ports:
-      - "3306:3306"
+      - "3307:3306"
     networks:
       - mediconnect_net
     volumes:

@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Dict, List
+import httpx
 
 
 MITIGATION_PROMPT = """\
@@ -71,6 +72,26 @@ class MitigationGenerator:
     def generate(self, vulnerabilities: List[Dict]) -> Dict[str, Any]:
         user_msg = _build_mitigation_message(vulnerabilities)
         provider = self.cfg.get("provider", "anthropic")
+
+        # If Ollama configured, check reachability and fallback if necessary
+        if provider == "ollama":
+            base = self.ollama_cfg.get("base_url", "http://localhost:11434")
+            try:
+                resp = httpx.get(base.rstrip("/") + "/v1/models", timeout=3.0)
+                if resp.status_code != 200:
+                    raise RuntimeError("unexpected status")
+            except Exception:
+                print(f"[warning] Ollama not reachable at {base}; attempting fallback providers...")
+                if os.environ.get("OPENAI_API_KEY"):
+                    provider = "openai"
+                    print("[info] Falling back to OpenAI (OPENAI_API_KEY detected)")
+                elif os.environ.get("ANTHROPIC_API_KEY"):
+                    provider = "anthropic"
+                    print("[info] Falling back to Anthropic (ANTHROPIC_API_KEY detected)")
+                else:
+                    print("[warning] No LLM API keys found — using demo mitigations")
+                    from vuln_ai.demo_data import DEMO_MITIGATIONS
+                    return DEMO_MITIGATIONS
 
         if provider == "anthropic":
             raw = self._call_anthropic(user_msg)

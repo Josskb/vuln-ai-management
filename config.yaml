@@ -1,5 +1,5 @@
 llm:
-  provider: anthropic          # anthropic | ollama | openai
+  provider: ollama             # anthropic | ollama | openai
   model: claude-sonnet-4-6
   temperature: 0.1
   max_tokens: 8192

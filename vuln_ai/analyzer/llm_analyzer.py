@@ -10,6 +10,7 @@ import re
 from typing import Any, Dict, List
 
 from vuln_ai.parser.arch_parser import Architecture
+import httpx
 
 
 SYSTEM_PROMPT = """\
@@ -178,6 +179,26 @@ class LLMAnalyzer:
     def analyze(self, arch: Architecture) -> Dict[str, Any]:
         user_msg = _build_user_message(arch)
         provider = self.cfg.get("provider", "anthropic")
+        # If Ollama is configured, check that the local server is reachable and fall
+        # back to OpenAI/Anthropic or demo data if it is not.
+        if provider == "ollama":
+            base = self.ollama_cfg.get("base_url", "http://localhost:11434")
+            try:
+                resp = httpx.get(base.rstrip("/") + "/v1/models", timeout=3.0)
+                if resp.status_code != 200:
+                    raise RuntimeError(f"unexpected status {resp.status_code}")
+            except Exception:
+                print(f"[warning] Ollama not reachable at {base}; attempting fallback providers...")
+                if os.environ.get("OPENAI_API_KEY"):
+                    provider = "openai"
+                    print("[info] Falling back to OpenAI (OPENAI_API_KEY detected)")
+                elif os.environ.get("ANTHROPIC_API_KEY"):
+                    provider = "anthropic"
+                    print("[info] Falling back to Anthropic (ANTHROPIC_API_KEY detected)")
+                else:
+                    print("[warning] No LLM API keys found — using demo data")
+                    from vuln_ai.demo_data import DEMO_LLM_REPORT
+                    return DEMO_LLM_REPORT
         last_error: Exception = None
 
         for attempt in range(self.max_retries):
