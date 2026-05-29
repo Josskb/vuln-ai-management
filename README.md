@@ -64,6 +64,11 @@ Les rapports se trouvent dans `output/` :
 - `output/report_raw.json` : données brutes
 - `output/report_mediconnect.html` : rapport lisible dans un navigateur
 
+Pour vérifier le mapping CVE, lance le pipeline sans `--demo` et regarde :
+
+- Section "CVE Mapping Table" dans `output/report_mediconnect.html`
+- Champ `cve_mapping_table` dans `output/report_raw.json`
+
 ## Configurer le LLM
 
 Le projet est configuré pour essayer Ollama en local en premier. Si Ollama n'est pas dispo, il bascule automatiquement sur OpenAI ou Anthropic si une clé est présente, sinon il retombe sur les données de démo.
@@ -107,6 +112,16 @@ SET x "\n\nssh-rsa AAAA...cle_attaquant...\n\n"
 BGSAVE
 ssh root@127.0.0.1
 mysql -u app_user -pApp2023! -h mysql mediconnect
+```
+
+Preuve rapide (attendue) :
+
+```bash
+# La webapp répond et affiche 3 patients
+curl http://localhost:8080
+
+# Vérifier côté MySQL
+docker exec -it mediconnect_mysql mysql -u app_user -pApp2023! -e "USE mediconnect; SELECT COUNT(*) FROM patients;"
 ```
 
 ## Avertissement
