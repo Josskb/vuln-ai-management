@@ -1,6 +1,6 @@
 """
-Pre-crafted demo report data — matches the MediConnect analysis from the written report.
-Used with --demo flag to validate the pipeline output without any LLM call.
+Données de démo pré-construites — correspond à l'analyse MediConnect du rapport écrit.
+Utilisées avec le flag --demo pour valider le pipeline sans aucun appel LLM ni API.
 """
 
 DEMO_LLM_REPORT = {
@@ -10,6 +10,29 @@ DEMO_LLM_REPORT = {
         "Python Pickle Service", "wkhtmltopdf 0.12.5",
         "MySQL 5.7", "Redis 6.0", "AWS S3", "SSH Server",
     ],
+    "attack_surface": {
+        "internet_exposed": [
+            "Nginx 1.18 (ports 80, 443)",
+            "PHP Laravel 8.x",
+            "API REST /api/v1",
+            "Admin Interface /admin",
+            "SSH Server (port 22)",
+            "Mirth Connect 4.4.0 (via reverse proxy, port 8080)",
+        ],
+        "internal_only": [
+            "MySQL 5.7 (port 3306)",
+            "Redis 6.0 (port 6379)",
+            "Python Pickle Notification Service",
+            "Spring Boot Rules Engine",
+            "wkhtmltopdf 0.12.5",
+        ],
+        "critical_paths": [
+            "Internet -> Nginx -> Mirth Connect 4.4.0 (CVE-2023-43208) -> RCE -> Flat network -> All internal services",
+            "Internet -> Laravel /api -> wkhtmltopdf SSRF -> AWS metadata -> S3 exfiltration",
+            "Flat network (post-breach) -> Redis 6379 (no auth) -> CONFIG SET -> root SSH",
+            "Internet -> /admin HTTP Basic Auth -> brute-force -> full admin access",
+        ],
+    },
     "vulnerabilities": [
         {
             "id": "VULN-001",
@@ -21,7 +44,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 9.8,
             "description": "Mirth Connect <= 4.4.0 allows unauthenticated remote code execution via Java XStream deserialisation. The /api endpoint processes user-controlled XML without sanitisation, granting the attacker OS-level execution as the Mirth process user.",
             "attack_vector": "POST /api HTTP/1.1 with crafted XStream XML payload -> arbitrary command execution. No credentials required. Port 8080 exposed via reverse proxy.",
+            "evidence": "Mirth Connect 4.4.0 listed as DMZ component, version explicitly stated, exposed via reverse proxy from internet (port 8080). Misconfiguration entry: 'CVE-2023-43208: unauthenticated RCE via Java XStream deserialisation'.",
             "confidence_score": 0.97,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-002",
@@ -33,7 +58,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 10.0,
             "description": "Redis has no requirepass set. On a flat network, any compromised host can connect on port 6379. CONFIG SET allows writing arbitrary files to the filesystem — crontab injection, authorized_keys implant, or webshell creation are all trivial.",
             "attack_vector": "redis-cli -h <target> CONFIG SET dir /root/.ssh; CONFIG SET dbfilename authorized_keys; SET x '<pubkey>'; BGSAVE -> SSH as root.",
+            "evidence": "Component named 'Redis 6.0 (no authentication)' — no-auth state explicit in name. Misconfiguration: 'No authentication — requirepass not set (CWE-306)'. Port 6379 accessible on flat network.",
             "confidence_score": 0.99,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-003",
@@ -45,7 +72,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 9.0,
             "description": "Python's pickle module executes arbitrary code on deserialisation. If an attacker controls the data sent to this service (post-initial-access on the flat network), a trivial pickle payload triggers immediate RCE.",
             "attack_vector": "Inject crafted pickle payload via compromised network path -> OS command execution as Python service process user.",
+            "evidence": "Component uses Python 3.8 + pickle. Misconfiguration: 'Insecure deserialisation via pickle (CWE-502) — arbitrary code execution on crafted payload'. Service reachable on flat network.",
             "confidence_score": 0.88,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-004",
@@ -57,7 +86,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 9.8,
             "description": "wkhtmltopdf 0.12.5 follows HTTP redirects including to internal resources. An attacker who controls the URL passed to the PDF generator can exfiltrate AWS EC2 instance metadata, internal service responses, and files via file:// handler.",
             "attack_vector": "Submit PDF generation request with URL http://169.254.169.254/latest/meta-data/iam/security-credentials/ -> read AWS IAM role credentials.",
+            "evidence": "wkhtmltopdf 0.12.5 version explicitly stated. Misconfiguration: 'CVE-2022-35583: SSRF — can fetch internal metadata / files via crafted HTML'.",
             "confidence_score": 0.93,
+            "reliability_score": 80,
         },
         {
             "id": "VULN-005",
@@ -69,7 +100,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 7.5,
             "description": "Database credentials (app_user / App2023!) stored in plaintext .env file. Password is trivially guessable. Any LFI, path traversal, or .env exposure leaks direct database access to all patient medical records.",
             "attack_vector": "Read .env via LFI on Laravel -> extract DB credentials -> mysql -u app_user -pApp2023! -h <db_host> mediconnect.",
+            "evidence": "MySQL 5.7 misconfiguration: 'Credentials stored in plaintext .env (user: app_user, pwd: App2023!)' and 'Weak password (CWE-521)'.",
             "confidence_score": 0.95,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-006",
@@ -81,7 +114,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 8.1,
             "description": "HTTP Basic Authentication transmits credentials base64-encoded. Without rate limiting or WAF, a dictionary attack against /admin is feasible from the internet. TLS 1.2 only leaves weak cipher suites available.",
             "attack_vector": "hydra -l admin -P rockyou.txt https://<target>/admin -m Basic-Auth -> brute-force admin credentials.",
+            "evidence": "Misconfigurations on Admin Interface: 'HTTP Basic Auth — credentials base64-encoded in transit', 'No MFA', 'No rate limiting'. Component exposed to internet.",
             "confidence_score": 0.90,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-007",
@@ -93,7 +128,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 7.5,
             "description": "JWT tokens are signed with HS256 (symmetric HMAC). If the secret is weak or leaked (e.g., via .env exposure), an attacker can forge arbitrary tokens and impersonate any user including admin. Also vulnerable to algorithm confusion (none/RS256 to HS256).",
             "attack_vector": "Extract JWT secret from .env -> forge token with admin claims -> access any patient record via /api/v1/patients/<id>.",
+            "evidence": "API component uses JWT HS256 (symmetric). Misconfiguration: 'JWT signed with HS256 (symmetric) — algorithm confusion risk (CWE-347)'.",
             "confidence_score": 0.85,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-008",
@@ -105,7 +142,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 6.5,
             "description": "SSH exposes password authentication on port 22. Without fail2ban or rate limiting, automated brute-force against weak credentials is trivially feasible from the internet.",
             "attack_vector": "nmap -sV -p 22 <target> -> hydra -l root -P rockyou.txt ssh://<target> -> shell access.",
+            "evidence": "SSH Server misconfigurations: 'PasswordAuthentication enabled — brute-force possible (CWE-521)', 'Port 22 exposed to internet without fail2ban or rate limiting'.",
             "confidence_score": 0.92,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-009",
@@ -117,7 +156,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 7.5,
             "description": "S3 bucket configured as public read. AWS IAM credentials are stored in the .env file on the web server. Combined, these allow unauthenticated data exfiltration of all stored files and further AWS service access.",
             "attack_vector": "Read .env (LFI or SSRF) -> AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY -> aws s3 ls s3://mediconnect-backup-prod -> aws s3 sync s3://mediconnect-backup-prod /tmp/exfil.",
+            "evidence": "AWS S3 misconfigurations: 'Bucket public in read — data exfiltration possible without authentication', 'IAM credentials stored in .env file'.",
             "confidence_score": 0.91,
+            "reliability_score": 100,
         },
         {
             "id": "VULN-010",
@@ -129,7 +170,9 @@ DEMO_LLM_REPORT = {
             "cvss_score": 7.7,
             "description": "Nginx 1.18 is affected by an off-by-one error in the DNS resolver. In configurations relying on dynamic upstream resolution, an attacker on a shared network can exploit this to potentially bypass resolver security checks.",
             "attack_vector": "DNS spoofing attack against Nginx resolver in environments using dynamic upstream backends.",
+            "evidence": "Nginx 1.18 version explicitly stated. Misconfiguration: 'TLS 1.2 only — weak cipher suites possible'. CVE-2021-23017 applies to Nginx < 1.20.1.",
             "confidence_score": 0.75,
+            "reliability_score": 80,
         },
         {
             "id": "VULN-011",
@@ -141,10 +184,17 @@ DEMO_LLM_REPORT = {
             "cvss_score": 7.0,
             "description": "No SIEM, no IDS/IPS, no WAF deployed. Logs are not centralised. An attacker can operate undetected for extended periods. Combined with the flat network (no segmentation), lateral movement is trivial and invisible.",
             "attack_vector": "Post-exploitation: move laterally to all internal services without triggering any alert; no detection capability exists.",
+            "evidence": "Architecture description states flat network with no segmentation. No WAF, IDS, or SIEM mentioned anywhere in the component list.",
             "confidence_score": 0.98,
+            "reliability_score": 100,
         },
     ],
     "risk_score": 95,
+    "risk_score_rationale": (
+        "Score de 95/100 justifié par la combinaison d'un RCE non authentifié (CVE-2023-43208, CVSS 9.8) "
+        "avec un réseau plat sans segmentation — toute compromission initiale donne accès à l'ensemble de l'infrastructure. "
+        "L'absence de SIEM et de WAF rend la détection impossible, transformant chaque vecteur en compromission totale."
+    ),
     "summary": (
         "MediConnect Corp presents a critical security posture with a global risk score of 95/100. "
         "The architecture combines unauthenticated RCE (Mirth Connect CVE-2023-43208), an unprotected Redis instance "
@@ -385,7 +435,7 @@ DEMO_MITIGATIONS = {
             "type": "Patch",
             "priority": "IMMEDIATE",
             "effort": "LOW",
-            "description": "CVE-2023-43208 is patched in Mirth Connect 4.4.1. The unauthenticated RCE via XStream deserialisation is the highest-severity vector in this architecture.",
+            "description": "CVE-2023-43208 is patched in Mirth Connect 4.4.1. The unauthenticated RCE via XStream deserialisation est le vecteur de sévérité maximale de l'architecture.",
             "implementation_steps": [
                 "1. Download Mirth Connect 4.4.1 from https://github.com/nextgenhealthcare/connect/releases",
                 "2. Backup current configuration: cp -r /opt/mirth/conf /opt/mirth/conf.bak",
