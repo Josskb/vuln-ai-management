@@ -39,7 +39,8 @@ config.yaml                # configuration LLM et NVD
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
-# Renseigner ANTHROPIC_API_KEY dans .env si on utilise Claude
+# Laisser vide si on veut rester en local avec Ollama
+# Renseigner OPENAI_API_KEY ou ANTHROPIC_API_KEY seulement si on veut utiliser une API distante
 ```
 
 ## Utilisation
@@ -65,11 +66,13 @@ Les rapports se trouvent dans `output/` :
 
 ## Configurer le LLM
 
+Le projet est configuré pour essayer Ollama en local en premier. Si Ollama n'est pas dispo, il bascule automatiquement sur OpenAI ou Anthropic si une clé est présente, sinon il retombe sur les données de démo.
+
 Dans `config.yaml` :
 
 ```yaml
 llm:
-  provider: anthropic   # anthropic | ollama | openai
+  provider: ollama       # anthropic | ollama | openai
   model: claude-sonnet-4-6
 ```
 
