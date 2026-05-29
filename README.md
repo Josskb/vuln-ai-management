@@ -1,6 +1,6 @@
 # VulnAI Management
 
-> TP3 EFREI RS3 S8 ARIR83 — Josselin KEIB, Mattéo LAUNAY, Amina EL-ABED, Soulaimane LAARISSI et Ethan GUINGAND 
+> TP3 EFREI RS3 S8 ARIR83 — Mattéo LAUNAY, Amina EL-ABED, Soulaimane LAARISSI, Ethan GUINGAND et Josselin KEIB
 
 Pipeline d'analyse de sécurité piloté par LLM, développé pour le TP3.
 
