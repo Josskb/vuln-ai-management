@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List
 
 from vuln_ai.parser.arch_parser import Architecture
@@ -92,7 +93,6 @@ class AttackScenarioGenerator:
         user_msg = _build_scenario_message(vulnerabilities, arch)
         provider = self.cfg.get("provider", "anthropic")
 
-        # If Ollama configured, check reachability and fallback if necessary
         if provider == "ollama":
             base = self.ollama_cfg.get("base_url", "http://localhost:11434")
             try:
@@ -112,24 +112,75 @@ class AttackScenarioGenerator:
                     from vuln_ai.demo_data import DEMO_SCENARIOS
                     return DEMO_SCENARIOS
 
-        if provider == "anthropic":
-            raw = self._call_anthropic(user_msg)
-        elif provider == "ollama":
-            raw = self._call_openai_compatible(
-                user_msg,
-                model=self.ollama_cfg.get("model", "llama3:70b"),
-                base_url=self.ollama_cfg.get("base_url", "http://localhost:11434") + "/v1",
-            )
-        else:
-            raw = self._call_openai_compatible(user_msg, model=self.cfg.get("model", "gpt-4o"))
+        last_error: Exception = None
+        for attempt in range(3):
+            try:
+                msg = user_msg
+                if attempt > 0:
+                    msg += f"\n\n[RETRY {attempt}] Erreur precedente: {last_error}. Reponds UNIQUEMENT en JSON valide."
 
-        return self._parse(raw)
+                if provider == "anthropic":
+                    raw = self._call_anthropic(msg)
+                elif provider == "ollama":
+                    raw = self._call_openai_compatible(
+                        msg,
+                        model=self.ollama_cfg.get("model", "llama3:70b"),
+                        base_url=self.ollama_cfg.get("base_url", "http://localhost:11434") + "/v1",
+                    )
+                else:
+                    raw = self._call_openai_compatible(msg, model=self.cfg.get("model", "gpt-4o"))
+
+                return self._parse(raw)
+
+            except (json.JSONDecodeError, ValueError) as exc:
+                last_error = exc
+                if attempt == 2:
+                    raise RuntimeError(
+                        f"LLM n'a pas produit de JSON valide apres 3 tentatives : {exc}"
+                    ) from exc
+
+        return {}
 
     def _parse(self, raw: str) -> Dict[str, Any]:
-        text = raw.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
-        return json.loads(text)
+        s = re.sub(r"```json\s*", "", raw, flags=re.IGNORECASE)
+        s = re.sub(r"```\s*", "", s).strip()
+
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            pass
+
+        start = s.find("{")
+        if start == -1:
+            raise ValueError("Aucun objet JSON trouve dans la reponse LLM")
+
+        depth, in_str, escape = 0, False, False
+        for i, c in enumerate(s[start:], start):
+            if escape:
+                escape = False
+                continue
+            if c == "\\" and in_str:
+                escape = True
+                continue
+            if c == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if c == "{":
+                depth += 1
+            if c == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = s[start: i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        fixed = re.sub(r",\s*([}\]])", r"\1", candidate)
+                        fixed = re.sub(r"//[^\n]*", "", fixed)
+                        return json.loads(fixed)
+
+        raise ValueError(f"JSON incomplet dans la reponse LLM (profondeur finale : {depth})")
 
     def _call_anthropic(self, user_msg: str) -> str:
         import anthropic  # type: ignore
