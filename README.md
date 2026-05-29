@@ -59,6 +59,15 @@ python -m vuln_ai.main --skip-cve
 python -m vuln_ai.main --arch chemin/vers/mon_archi.txt
 ```
 
+## Interface web (Streamlit)
+
+Interface minimale pour lancer le pipeline et telecharger les rapports.
+
+```bash
+pip install -r requirements.txt
+streamlit run ui/app.py
+```
+
 Les rapports se trouvent dans `output/` :
 
 - `output/report_raw.json` : données brutes
